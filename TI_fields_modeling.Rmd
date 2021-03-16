@@ -1,0 +1,90 @@
+---
+title: "Plot_TI_fields"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+.libPaths('C:/Users/vbeliaev/Documents/r_packages')
+
+library(ggplot2)
+library(data.table)
+library(ggrepel)
+
+
+```
+
+## Plotting the TI fields 
+
+This script, first, loads the database of the TI fields collected to find an optimal configuration of electrodes  
+to stimulation of the vmPFC.     
+Then, fields are sorted for focality of their stimulation.     
+After that, we choose a field, which is not only focal, but also has one of the highest thresholds. 
+
+Threshold correponds to the value of the median activation within the vmPFC (half of the voxels within the 
+target are activated on the level of the threshold or higher).     
+Focality tells us the percentage of the voxels activated higher than the threshold that are located within the target in comparison with the whole brain.      
+
+
+```{r load TI fields, warning = FALSE}
+
+setwd('C:/Users/vbeliaev/Documents/TI_fMRI/pre_registration_paper/methods/modelling/paper_scripts')
+dat = read.csv('fields_729.csv')
+
+dat_sort = dat[order(-dat$focality),]
+dat_sort_red = dat_sort[1:10,]
+
+dat_show = dat_sort_red[,c(1, 3, 6, 10, 11)]
+
+knitr::kable(dat_show, caption = "Fields with highest focality")
+
+```
+
+
+Field which has high focality and high median field is 'Fp1 P7 Fp2 P8'   
+This field will be highlighted on the plot   
+
+Generating a plot for these results    
+
+```{r generating the plot for the TI fields, echo = FALSE}
+
+## highliting the field that is chosen  
+
+idx = which(dat_sort_red$Field == 'Configuration_Fp1_P7_Fp2_P8.cache')
+dat_sort_red$chosen = c(rep('unchosen', idx-1), rep('chosen', 1), rep('unchosen', nrow(dat_sort_red) - idx))
+
+## preparing names of the fields for plots
+
+vec_lab = as.character(dat_sort_red$Field)
+new_names = c()
+n = 1 
+for (i_v in vec_lab) {
+  
+  i_spl = strsplit(i_v, '.cache')
+  vec_spl = strsplit(i_spl[[1]], '_')
+  
+  new_names[n] = paste(vec_spl[[1]][2], vec_spl[[1]][3], 'and', vec_spl[[1]][4], vec_spl[[1]][5])
+  n = n + 1
+}
+
+.labs = new_names
+
+## plotting 
+
+ggplot(dat_sort_red, aes(threshold, focality)) + 
+  geom_point(aes(shape = chosen, color = chosen), size=4) + 
+  xlab('Threshold (median TI field)') + 
+  ylab('Focality (%)') + 
+  theme_bw() + 
+  #geom_text_repel(aes(label = .labs), size = 4) + 
+  geom_label_repel(aes(label = .labs), size = 4) + 
+  theme(text = element_text(size=14), axis.text.x = element_text(size=14), 
+        axis.text.y = element_text(size=14)) + 
+  ggtitle('Ten TI fields with best focality for vmPFC') + 
+  theme(legend.position = "none") + 
+  scale_shape_manual(values=c(17, 16)) + 
+  scale_color_manual(values=c('darkviolet', 'gray21'))  
+
+```
+

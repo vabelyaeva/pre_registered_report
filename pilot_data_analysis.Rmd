@@ -1,0 +1,367 @@
+---
+title: "Pilot data analysis"
+output: html_document
+---
+
+```{r setup, include=TRUE, warning=FALSE, message=FALSE}
+.libPaths('C:/Users/vbeliaev/Documents/r_packages')
+
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list = ls())
+
+library(ggsignif)
+library(ggplot2)
+library(gridExtra)
+library(lme4)
+library(plyr)
+library(dplyr)
+library(boot)
+library(data.table)
+
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
+```
+
+# Preprocessing 
+
+```{r preprocessing, warning=FALSE, message=FALSE}
+
+tab1 = read.csv("Data_collected_together.csv")
+
+# set bottom choice to 0 (instead of -1), when top picture is chosen = 1 
+tab1$Choice01 = tab1$Choice
+tab1$Choice01[tab1$Choice01 == -1] = 0
+
+# remove too slow answers
+idx = which(tab1$RT_choice>0)
+tab1 = tab1[idx,]
+
+# create 8 tiles for size and taste trials 
+# this tiles will be used for plots 
+tab1$Size_diff.ntile = ntile(tab1$Size_diff,8)
+tab1$Taste_diff.ntile = ntile(tab1$Taste_diff,8)
+
+# take absolute value of differences in size and taste between top and bottom food items
+tab1$Size_diff.abs = scale(abs(tab1$Size_diff))
+tab1$Taste_diff.abs = scale(abs(tab1$Taste_diff))
+
+# 1 subject is removed because they had 50% of correct trails - chance level 
+idx = which(tab1$Participant %!in% c(2))
+tab1 = tab1[idx,]
+
+# leave only taste trials
+idx = which(tab1$Cue_Taste1_Size2 == 1)
+dataVal = tab1[idx,]
+
+# leave only size trials
+idx = which(tab1$Cue_Taste1_Size2 == 2)
+dataPer = tab1[idx,]
+
+## Get the correct response for taste table
+dataVal$corr = 0
+idx = which( (dataVal$Taste_diff>0 & dataVal$Choice01==1) | (dataVal$Taste_diff<0 & dataVal$Choice01==0))
+dataVal$corr[idx] = 1
+
+## Get the correct response for size table
+dataPer$corr = 0
+idx = which( (dataPer$Size_diff>0 & dataPer$Choice01==1) | (dataPer$Size_diff<0 & dataPer$Choice01==0))
+dataPer$corr[idx] = 1
+
+write.csv(rbind(dataVal, dataPer), 'Data_collected_together_preprocessed.csv')
+
+ns = length(unique(tab1$Participant))
+
+```
+
+
+# Data analysis 
+
+Here we test the effect of TI on amount of correct trials in the choice task. 
+
+Correct answers correspond to trials, in which participant has chosen a picture, which 
+was earlier rated higher during the rating task. For example, participant during the rating task 
+estimated taste of banana for 0.8 and Twix for 0.9. Then in the choice task, when twix and banana 
+are presented in the same trial, if participant chooses Twix, answer is correct, if they choose banana
+the answer is considered incorrect.  
+
+TI stimulation was delivered durint the 1st part (112 trials) of the choice task (immidiate effects) and switched off during the second task (after effects, last 64 trials).  
+
+While the vmPFC that was stimulated with the TI is more involved in value-based decisions like 
+taste, we expect to find effect of stimulation on taste trilas and not on size trials in the choice task.   
+
+For the model: dependent variable - vector, which contains correct (1) or incorrect (0) trials.  
+Regressors: (1) active stimulation = 1, sham stimulation = 0;   
+(2) difference in size or taste between two food items (the smaller the difference - the harder is the choice)
+
+First, we will compare results across sessions, e.g., comparing results of 112 trials from active session and sham session. Then, we will compare results within session: 112 trilas with last 64 trials from active session.   
+
+## Between session comparison (active vs sham)
+
+### Immidiate effects of TI on taste trials 
+
+There is no significant effect on correct taste trials during the 1st part of the choice task, when the TI is on.  
+
+```{r immidiate TI taste, warning=FALSE, message=FALSE}
+
+idx = which(dataVal$Trial_Nr<113)            #Table: first 112 trials, when TI is on
+dataVal2 = dataVal[idx,]
+dataVal2$Stim = 1
+idx = which(dataVal2$Session_type==0)         #Stim variable: active/sham sessions
+dataVal2$Stim[idx] = -1
+
+m1.val.stim1.abs = glmer(corr ~ Stim*Taste_diff.abs + (1+Stim*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
+
+summary(m1.val.stim1.abs)
+
+```
+
+### After effects of TI on taste trials 
+
+After TI stimulation amount of correct choices in taste trials increases.   
+
+```{r after effects TI taste, warning=FALSE, message=FALSE}
+
+idx = which(dataVal$Trial_Nr>=113)            #Table: last 64 trials, when TI is off
+dataVal2 = dataVal[idx,]
+dataVal2$Stim = 1
+idx = which(dataVal2$Session_type==0)         #Stim variable: active/sham sessions
+dataVal2$Stim[idx] = -1
+
+m1.val.stim2.abs = glmer(corr ~ Stim*Taste_diff.abs + (1+Stim*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
+
+summary(m1.val.stim2.abs)
+
+```
+
+### Immidiate effects of TI on size trials 
+
+No significant effect of TI on size trials.   
+
+```{r immidiate TI size, warning=FALSE, message=FALSE}
+
+idx = which(dataPer$Trial_Nr<113)            #Table: first 112 trials, when TI is on
+dataPer2 = dataPer[idx,]
+dataPer2$Stim = 1
+idx = which(dataPer2$Session_type==0)         #Stim variable: active/sham sessions
+dataPer2$Stim[idx] = -1
+
+m1.per.stim1.abs = glmer(corr ~ Stim*Size_diff.abs + (1+Stim*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
+
+summary(m1.per.stim1.abs)
+
+```
+
+
+### After effects of TI on size trials 
+
+No significant effect of TI on size trials.   
+
+```{r after effects TI size, warning=FALSE, message=FALSE}
+
+idx = which(dataPer$Trial_Nr>=113)            #Table: last 64 trials, when TI is off
+dataPer2 = dataPer[idx,]
+dataPer2$Stim = 1
+idx = which(dataPer2$Session_type==0)         #Stim variable: active/sham sessions
+dataPer2$Stim[idx] = -1
+
+m1.per.stim2.abs = glmer(corr ~ Stim*Size_diff.abs + (1+Stim*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
+
+summary(m1.per.stim2.abs)
+
+```
+
+```{r save models}
+
+save(m1.val.stim1.abs, file = 'TI_immidiate_taste.RData')
+save(m1.val.stim2.abs, file = 'TI_after_taste.RData')
+save(m1.per.stim1.abs, file = 'TI_immidiate_size.RData')
+save(m1.per.stim2.abs, file = 'TI_after_size.RData')
+
+```
+
+
+## Within session comparison (immidiate vs after effects) 
+
+### Taste trials: immidiate and after effect in active stimulation condition    
+
+In the session when TI was applied there was no difference in accuracy during the first part of the choice task (immidiate effects) and the second part (after effects) for taste trials.  
+
+```{r within session taste active, warning=FALSE, message=FALSE}
+
+idx = which(dataVal$Session_type==1)          # Table: active sessions
+dataVal2 = dataVal[idx,]
+dataVal2$Block = 1
+idx = which(dataVal2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
+dataVal2$Block[idx] = -1
+
+m2.val.stim1.abs = glmer(corr ~ Block*Taste_diff.abs + (1+Block*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
+
+summary(m2.val.stim1.abs)
+
+```
+
+### Taste trials: immidiate and after effect in sham condition    
+
+In sham session participants performed better during the first part of the choice task, but then accuracy dropped for the taste trails, in particular.    
+This pattern was not present in condition when TI was applied.  
+
+```{r within session taste sham, warning=FALSE, message=FALSE}
+
+idx = which(dataVal$Session_type==0)          # Table: sham sessions
+dataVal2 = dataVal[idx,]
+dataVal2$Block = 1
+idx = which(dataVal2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
+dataVal2$Block[idx] = -1
+
+m2.val.stim2.abs = glmer(corr ~ Block*Taste_diff.abs + (1+Block*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
+
+summary(m2.val.stim2.abs)
+
+```
+
+### Size trials: immidiate and after effect in active stimulation condition    
+
+No significant effect of stimulation on the size trials.   
+
+```{r within session size active, warning=FALSE, message=FALSE}
+
+idx = which(dataPer$Session_type==1)          # Table: active sessions
+dataPer2 = dataPer[idx,]
+dataPer2$Block = 1
+idx = which(dataPer2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
+dataPer2$Block[idx] = -1
+
+m2.per.stim1.abs = glmer(corr ~ Block*Size_diff.abs + (1+Block*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
+
+summary(m2.per.stim1.abs)
+
+```
+
+### Size trials: immidiate and after effect in sham condition    
+
+No significant effect of stimulation on the size trials.   
+
+```{r within session size sham, warning=FALSE, message=FALSE}
+
+idx = which(dataPer$Session_type==0)          # Table: sham sessions
+dataPer2 = dataPer[idx,]
+dataPer2$Block = 1
+idx = which(dataPer2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
+dataPer2$Block[idx] = -1
+
+m2.per.stim2.abs = glmer(corr ~ Block*Size_diff.abs + (1+Block*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
+
+summary(m2.per.stim2.abs)
+
+```
+
+# Plot main result 
+
+```{r plot results taste, warning=FALSE, message=FALSE}
+
+# firs plot for taste trials 
+
+idx = which(dataVal$Trial_Nr<113)            
+dataVal_imm = as.data.table(dataVal[idx,])
+
+idx = which(dataVal$Trial_Nr>=113)            
+dataVal_after = as.data.table(dataVal[idx,])
+
+data1 = ddply(dataVal_imm, .(Participant, Session_type), summarise, acc = mean(corr))
+data2 = ddply(data1, .(Session_type), summarise, acc2 = mean(acc), se=sd(acc)/sqrt(ns))
+data2$cued = "Immidiate"
+colnames(data2)[1] = "Stim"
+
+data1 = ddply(dataVal_after, .(Participant, Session_type), summarise, acc = mean(corr))
+data3 = ddply(data1, .(Session_type), summarise, acc2 = mean(acc), se=sd(acc)/sqrt(ns))
+data3$cued = "After effects"
+colnames(data3)[1] = "Stim"
+
+dataVal_plot = rbind(data3,data2)
+dataVal_plot$Stim = factor(dataVal_plot$Stim, levels = c(1,0), labels = c('Active','Sham'))
+dataVal_plot$cued = as.factor(dataVal_plot$cued)
+dataVal_plot$cued = ordered(dataVal_plot$cued, levels = c('Immidiate', 'After effects'))
+
+limits = aes(ymax = acc2+se, ymin=acc2-se, colour=cued, group=cued)
+
+plot_val = ggplot(dataVal_plot, aes(x=cued, y=acc2, fill = Stim)) +
+   geom_bar(stat="identity", position=position_dodge(), alpha = 0.5) +
+  geom_errorbar(aes(ymin=acc2-se, ymax=acc2+se), width=.1,
+                 position=position_dodge(.9)) + 
+  geom_point(position=position_dodge(.9), show_guide = FALSE) + 
+    theme_bw() + 
+    ylab('Accuracy') + 
+  xlab(' ') +
+  scale_fill_manual(values=c('black', 'lightgray')) + 
+  #ylim(c(0, 1)) +
+  ggtitle('Value-based trials') + 
+  theme(legend.title = element_blank()) + 
+  #scale_y_continuous(limits = c(0.5,1), ) +
+  coord_cartesian(ylim= c(0.5,1)) + 
+  #geom_signif(comparisons = list(c("Immidiate effects", "After effects")), annotation = c('*'))
+  geom_signif(y_position = c(0.82, 0.82, 0.9), xmin = c(0.8, 1.8, 1.2), xmax = c(1.2, 2.2, 2.3),
+    annotation = c("NS", "*", '*'), tip_length = 0.2) + 
+  theme(legend.position = c(0.2, 0.87)) + 
+    theme(text = element_text(size=14), axis.text.x = element_text(size=14), 
+        axis.text.y = element_text(size=14))  
+
+```
+
+
+```{r plot results size, warning=FALSE, message=FALSE}
+
+# then plot for size trials 
+
+idx = which(dataPer$Trial_Nr<113)            
+dataPer_imm = as.data.table(dataPer[idx,])
+
+idx = which(dataPer$Trial_Nr>=113)            
+dataPer_after = as.data.table(dataPer[idx,])
+
+data1 = ddply(dataPer_imm, .(Participant, Session_type), summarise, acc = mean(corr))
+data2 = ddply(data1, .(Session_type), summarise, acc2 = mean(acc), se=sd(acc)/sqrt(ns))
+data2$cued = "Immidiate"
+colnames(data2)[1] = "Stim"
+
+data1 = ddply(dataPer_after, .(Participant, Session_type), summarise, acc = mean(corr))
+data3 = ddply(data1, .(Session_type), summarise, acc2 = mean(acc), se=sd(acc)/sqrt(ns))
+data3$cued = "After effects"
+colnames(data3)[1] = "Stim"
+
+dataPer_plot = rbind(data3,data2)
+dataPer_plot$Stim = factor(dataPer_plot$Stim, levels = c(1,0), labels = c('Active','Sham'))
+dataPer_plot$cued = as.factor(dataPer_plot$cued)
+dataPer_plot$cued = ordered(dataPer_plot$cued, levels = c('Immidiate', 'After effects'))
+
+limits = aes(ymax = acc2+se, ymin=acc2-se, colour=cued, group=cued)
+
+plot_per = ggplot(dataPer_plot, aes(x=cued, y=acc2, fill = Stim)) +
+   geom_bar(stat="identity", position=position_dodge(), alpha = 0.5) +
+  geom_errorbar(aes(ymin=acc2-se, ymax=acc2+se), width=.1,
+                 position=position_dodge(.9)) + 
+  geom_point(position=position_dodge(.9), show_guide = FALSE) + 
+    theme_bw() + 
+    ylab('') + 
+  xlab(' ') +
+  scale_fill_manual(values=c('black', 'lightgray')) + 
+  #ylim(c(0, 1)) +
+  ggtitle('Perceptual trials') + 
+  theme(legend.title = element_blank()) + 
+  #scale_y_continuous(limits = c(0.5,1), ) +
+  coord_cartesian(ylim= c(0.5,1)) + 
+  #geom_signif(comparisons = list(c("Immidiate effects", "After effects")), annotation = c('*'))
+  geom_signif(y_position = c(0.82, 0.82, 0.9), xmin = c(0.8, 1.8, 1.2), xmax = c(1.2, 2.2, 2.3),
+    annotation = c("NS", "NS", 'NS'), tip_length = 0.2) + 
+  theme(legend.position = 'none') + 
+    theme(text = element_text(size=14), axis.text.x = element_text(size=14), 
+        axis.text.y = element_text(size=14))  
+
+```
+
+```{r plot combined, warning=FALSE, message=FALSE}
+
+grid.arrange(plot_val, plot_per, ncol=2, widths=c(1,1))
+
+```
+

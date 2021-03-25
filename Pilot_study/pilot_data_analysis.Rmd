@@ -1,6 +1,8 @@
 ---
 title: "Pilot data analysis"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=TRUE, warning=FALSE, message=FALSE}
@@ -43,12 +45,20 @@ tab1$Size_diff.ntile = ntile(tab1$Size_diff,8)
 tab1$Taste_diff.ntile = ntile(tab1$Taste_diff,8)
 
 # take absolute value of differences in size and taste between top and bottom food items
-tab1$Size_diff.abs = scale(abs(tab1$Size_diff))
-tab1$Taste_diff.abs = scale(abs(tab1$Taste_diff))
+tab1$Size_diff.abs = abs(tab1$Size_diff)
+tab1$Taste_diff.abs = abs(tab1$Taste_diff)
 
 # 1 subject is removed because they had 50% of correct trails - chance level 
 idx = which(tab1$Participant %!in% c(2))
 tab1 = tab1[idx,]
+
+tab1$Stim = 1
+idx = which(tab1$Session_type==0)         #Stim variable: active/sham sessions
+tab1$Stim[idx] = -1
+
+tab1$Block = 1
+idx = which(tab1$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
+tab1$Block[idx] = -1
 
 # leave only taste trials
 idx = which(tab1$Cue_Taste1_Size2 == 1)
@@ -62,11 +72,13 @@ dataPer = tab1[idx,]
 dataVal$corr = 0
 idx = which( (dataVal$Taste_diff>0 & dataVal$Choice01==1) | (dataVal$Taste_diff<0 & dataVal$Choice01==0))
 dataVal$corr[idx] = 1
+dataVal$Taste_diff.abs = scale(dataVal$Taste_diff.abs)
 
 ## Get the correct response for size table
 dataPer$corr = 0
 idx = which( (dataPer$Size_diff>0 & dataPer$Choice01==1) | (dataPer$Size_diff<0 & dataPer$Choice01==0))
 dataPer$corr[idx] = 1
+dataPer$Size_diff.abs = scale(dataPer$Size_diff.abs)
 
 write.csv(rbind(dataVal, dataPer), 'Data_collected_together_preprocessed.csv')
 
@@ -106,9 +118,6 @@ There is no significant effect on correct taste trials during the 1st part of th
 
 idx = which(dataVal$Trial_Nr<113)            #Table: first 112 trials, when TI is on
 dataVal2 = dataVal[idx,]
-dataVal2$Stim = 1
-idx = which(dataVal2$Session_type==0)         #Stim variable: active/sham sessions
-dataVal2$Stim[idx] = -1
 
 m1.val.stim1.abs = glmer(corr ~ Stim*Taste_diff.abs + (1+Stim*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
 
@@ -124,9 +133,6 @@ After TI stimulation amount of correct choices in taste trials increases.
 
 idx = which(dataVal$Trial_Nr>=113)            #Table: last 64 trials, when TI is off
 dataVal2 = dataVal[idx,]
-dataVal2$Stim = 1
-idx = which(dataVal2$Session_type==0)         #Stim variable: active/sham sessions
-dataVal2$Stim[idx] = -1
 
 m1.val.stim2.abs = glmer(corr ~ Stim*Taste_diff.abs + (1+Stim*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
 
@@ -142,9 +148,6 @@ No significant effect of TI on size trials.
 
 idx = which(dataPer$Trial_Nr<113)            #Table: first 112 trials, when TI is on
 dataPer2 = dataPer[idx,]
-dataPer2$Stim = 1
-idx = which(dataPer2$Session_type==0)         #Stim variable: active/sham sessions
-dataPer2$Stim[idx] = -1
 
 m1.per.stim1.abs = glmer(corr ~ Stim*Size_diff.abs + (1+Stim*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
 
@@ -161,9 +164,6 @@ No significant effect of TI on size trials.
 
 idx = which(dataPer$Trial_Nr>=113)            #Table: last 64 trials, when TI is off
 dataPer2 = dataPer[idx,]
-dataPer2$Stim = 1
-idx = which(dataPer2$Session_type==0)         #Stim variable: active/sham sessions
-dataPer2$Stim[idx] = -1
 
 m1.per.stim2.abs = glmer(corr ~ Stim*Size_diff.abs + (1+Stim*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
 
@@ -191,9 +191,6 @@ In the session when TI was applied there was no difference in accuracy during th
 
 idx = which(dataVal$Session_type==1)          # Table: active sessions
 dataVal2 = dataVal[idx,]
-dataVal2$Block = 1
-idx = which(dataVal2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
-dataVal2$Block[idx] = -1
 
 m2.val.stim1.abs = glmer(corr ~ Block*Taste_diff.abs + (1+Block*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
 
@@ -210,9 +207,6 @@ This pattern was not present in condition when TI was applied.
 
 idx = which(dataVal$Session_type==0)          # Table: sham sessions
 dataVal2 = dataVal[idx,]
-dataVal2$Block = 1
-idx = which(dataVal2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
-dataVal2$Block[idx] = -1
 
 m2.val.stim2.abs = glmer(corr ~ Block*Taste_diff.abs + (1+Block*Taste_diff.abs|Participant), data=dataVal2, family=binomial(link = "logit"))
 
@@ -228,9 +222,6 @@ No significant effect of stimulation on the size trials.
 
 idx = which(dataPer$Session_type==1)          # Table: active sessions
 dataPer2 = dataPer[idx,]
-dataPer2$Block = 1
-idx = which(dataPer2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
-dataPer2$Block[idx] = -1
 
 m2.per.stim1.abs = glmer(corr ~ Block*Size_diff.abs + (1+Block*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
 
@@ -246,9 +237,6 @@ No significant effect of stimulation on the size trials.
 
 idx = which(dataPer$Session_type==0)          # Table: sham sessions
 dataPer2 = dataPer[idx,]
-dataPer2$Block = 1
-idx = which(dataPer2$Trial_Nr>=113)            # Block variable: first 112 and last 64 trials
-dataPer2$Block[idx] = -1
 
 m2.per.stim2.abs = glmer(corr ~ Block*Size_diff.abs + (1+Block*Size_diff.abs|Participant), data=dataPer2, family=binomial(link = "logit"))
 

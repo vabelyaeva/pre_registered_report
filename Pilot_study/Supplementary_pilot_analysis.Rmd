@@ -2,7 +2,9 @@
 title: "Supplementary_pilot_analysis"
 author: "valeriia beliaeva"
 date: "3/18/2021"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, warning=FALSE, message=FALSE}
@@ -144,9 +146,6 @@ Models demonstrate that there are intrusions and size can affect participants ch
 
 idx = which(dataVal$Trial_Nr<113)            #Table: first 112 trials, when TI is on
 dataVal2 = dataVal[idx,]
-dataVal2$Stim = 1
-idx = which(dataVal2$Session_type==0)         #Stim variable: active/sham sessions
-dataVal2$Stim[idx] = -1
 
 m1.val.stim1.abs = lmer(RT.z ~ Taste_diff.abs*Stim + (1+Taste_diff.abs*Stim|Participant), data=dataVal2)
 
@@ -160,9 +159,6 @@ summary(m1.val.stim1.abs)
 
 idx = which(dataVal$Trial_Nr>=113)            #Table: last 64 trials, when TI is off
 dataVal2 = dataVal[idx,]
-dataVal2$Stim = 1
-idx = which(dataVal2$Session_type==0)         #Stim variable: active/sham sessions
-dataVal2$Stim[idx] = -1
 
 m1.val.stim2.abs = lmer(RT.z ~ Taste_diff.abs*Stim + (1+Taste_diff.abs*Stim|Participant), data=dataVal2)
 
@@ -176,9 +172,6 @@ summary(m1.val.stim2.abs)
 
 idx = which(dataPer$Trial_Nr<113)            #Table: first 112 trials, when TI is on
 dataPer2 = dataPer[idx,]
-dataPer2$Stim = 1
-idx = which(dataPer2$Session_type==0)         #Stim variable: active/sham sessions
-dataPer2$Stim[idx] = -1
 
 m1.per.stim1.abs = lmer(RT.z ~ Size_diff.abs*Stim + (1+Size_diff.abs*Stim|Participant), data=dataPer2)
 
@@ -192,9 +185,6 @@ summary(m1.per.stim1.abs)
 
 idx = which(dataPer$Trial_Nr>=113)            #Table: last 64 trials, when TI is off
 dataPer2 = dataPer[idx,]
-dataPer2$Stim = 1
-idx = which(dataPer2$Session_type==0)         #Stim variable: active/sham sessions
-dataPer2$Stim[idx] = -1
 
 m1.per.stim2.abs = lmer(RT.z ~ Size_diff.abs*Stim + (1+Size_diff.abs*Stim|Participant), data=dataPer2)
 

@@ -26,12 +26,17 @@ library(data.table)
 
 # loading preprocessed data
 tab1 = as.data.table(read.csv("Data_collected_together_preprocessed.csv"))
-tab1$Size_diff.z = scale(tab1$Size_diff)
-tab1$Taste_diff.z = scale(tab1$Taste_diff)
-tab1$RT.z = scale(tab1$RT)
 
 dataVal = tab1[Cue_Taste1_Size2 == 1]
+dataVal$Taste_diff.z = scale(dataVal$Taste_diff)
+dataVal$Size_diff.z = scale(dataVal$Size_diff)
+dataVal$RT.z = scale(dataVal$RT)
+
 dataPer = tab1[Cue_Taste1_Size2 == 2]
+dataPer$Size_diff.z = scale(dataPer$Size_diff)
+dataPer$Taste_diff.z = scale(dataPer$Taste_diff)
+dataPer$RT.z = scale(dataPer$RT)
+
 ns = length(unique(tab1$Participant))
 
 ```
